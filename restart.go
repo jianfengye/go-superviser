@@ -6,21 +6,30 @@ import(
     "sync"
     "fmt"
     "go/build"
+    "strings"
+    "os"
+    "log"
 )
 
-func restart(root string) {
+func restart(root string) (out []byte, err error){
     stopRun()
 
     // TODO: change to getGopath
-    context := build.Context.Default
+    context := build.Default
     splits := strings.Split(root, "/")
     bin := context.GOPATH + "/bin/" + splits[len(splits) - 1]
-    out, err := run(context.GOPATH + "/bin/", "go", "build", "-o", bin, splits[len(splits) - 1])
-    defer os.Remove(bin)
+    os.Remove(bin)
+    log.Println("bin:", bin)
+    out, err = run(context.GOPATH + "/bin/", "go", "build", "-o", bin, splits[len(splits) - 1])
+    //defer os.Remove(bin)
     if err != nil {
+        log.Fatalf("could not restart the project: %v", err)
         return
     }
-    return run("", bin)
+    if *withrun {
+        return run("", bin, "&")
+    }
+    return nil, nil
 }
 
 func stopRun() {
@@ -41,6 +50,7 @@ var running struct {
 func run(dir string, args ...string) ([]byte, error) {
     var buf bytes.Buffer
     cmd := exec.Command(args[0], args[1:]...)
+    log.Println(cmd)
     cmd.Dir = dir
     cmd.Stdout = &buf
     cmd.Stderr = cmd.Stdout

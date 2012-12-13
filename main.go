@@ -8,6 +8,7 @@ import (
 
 var (
     project = flag.String("project", "", "project to be supervised")
+    withrun = flag.Bool("withrun", false, "whether to run after build the project")
 )
 
 func main() {
@@ -23,12 +24,15 @@ func main() {
     }
 
     root := p.Dir
-    log.Println("Found the project", project)
+    log.Println("Found the project", *project, ":", root)
 
     action := make(chan uint32)
 
     // monitor folder
+    log.Println("start project")
     go restart(root) //start prject
+
+    log.Println("start monitor")
     go monitor(root, action)
 
     for {

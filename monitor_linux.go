@@ -1,15 +1,19 @@
 package main
 
+import (
+    "syscall"
+)
+
 func monitor(root string, action chan uint32) {
     fd, err := syscall.InotifyInit()
-    if fd == -1 {
+    if fd == -1 || err != nil {
         action <- 0
         return
     }
     
     flags := syscall.IN_MASK_ADD | syscall.IN_MODIFY | syscall.IN_CREATE | syscall.IN_DELETE
-    wd, errno := syscall.InotifyAddWatch(fd, root, flags)
-    if wd == -1 {
+    wd, errno := syscall.InotifyAddWatch(fd, root, uint32(flags))
+    if wd == -1 || errno != nil {
         action <- 0
         return
     }
