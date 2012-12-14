@@ -14,20 +14,17 @@ import(
 func restart(root string) (out []byte, err error){
     stopRun()
 
-    // TODO: change to getGopath
     context := build.Default
     splits := strings.Split(root, "/")
     bin := context.GOPATH + "/bin/" + splits[len(splits) - 1]
     os.Remove(bin)
-    log.Println("bin:", bin)
+
     out, err = run(context.GOPATH + "/bin/", "go", "build", "-o", bin, splits[len(splits) - 1])
-    //defer os.Remove(bin)
     if err != nil {
-        log.Fatalf("could not restart the project: %v", err)
-        return
+        return out, err
     }
     if *withrun {
-        return run("", bin, "&")
+        go run("", bin)
     }
     return nil, nil
 }
@@ -35,6 +32,7 @@ func restart(root string) (out []byte, err error){
 func stopRun() {
     running.Lock()
     if running.cmd != nil {
+        log.Println("kill cmd:", running.cmd.Args)
         running.cmd.Process.Kill()
         running.cmd = nil
     }
@@ -50,17 +48,20 @@ var running struct {
 func run(dir string, args ...string) ([]byte, error) {
     var buf bytes.Buffer
     cmd := exec.Command(args[0], args[1:]...)
-    log.Println(cmd)
+    log.Println("run cmd:", cmd.Args)
+
     cmd.Dir = dir
     cmd.Stdout = &buf
     cmd.Stderr = cmd.Stdout
 
     // Start command and leave in 'running'.
     running.Lock()
+
     if running.cmd != nil {
+        log.Println("running cmd:", running.cmd.Args)
         defer running.Unlock()
         return nil, fmt.Errorf("already running %s", running.cmd.Path)
-    }
+    } 
     if err := cmd.Start(); err != nil {
         running.Unlock()
         return nil, err

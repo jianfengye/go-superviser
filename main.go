@@ -8,14 +8,17 @@ import (
 
 var (
     project = flag.String("project", "", "project to be supervised")
-    withrun = flag.Bool("withrun", false, "whether to run after build the project")
+    withrun = flag.Bool("run", false, "whether to run after build the project")
+    end = make(chan bool)
 )
 
 func main() {
     flag.Parse()
 
-    if project == nil {
-        log.Fatalf("Could not find supervise project")
+    if *project == "" {
+        println("Params Error:")
+        flag.PrintDefaults()
+        return
     }
 
     p, err := build.Default.Import(*project, "", build.FindOnly)
@@ -24,24 +27,23 @@ func main() {
     }
 
     root := p.Dir
-    log.Println("Found the project", *project, ":", root)
-
     action := make(chan uint32)
-
-    // monitor folder
-    log.Println("start project")
-    go restart(root) //start prject
-
-    log.Println("start monitor")
     go monitor(root, action)
 
+    restart(root)
+
     for {
-        a := <- action
-        switch {
-        case a > 0:
-            restart(root)
-        default:
-            log.Fatalf("monitor internal error")
+        select {
+        case <- action:
+            out, err := restart(root)
+            if err != nil {
+                log.Println("===============notice================")
+                log.Println("error out:", string(out))
+                log.Println("could not restart the project: %v", err)
+                log.Println("======================================")
+            }
+        case <- end:
+            log.Fatalf("superviser end")
         }
     }
 }
